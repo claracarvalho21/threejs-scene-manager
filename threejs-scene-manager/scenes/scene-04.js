@@ -4,6 +4,10 @@ if (typeof scene === 'undefined') {
     throw new Error('Setup não foi carregado');
 }
 
+console.log('Scene-04: Iniciando cena com floresta natural, fogueira e personagem...');
+
+// === CLOCK DEFINIDO NO INÍCIO ===
+const clock = new THREE.Clock();
 
 // === CHÃO COMPLETO ===
 const groundGroup = new THREE.Group();
@@ -112,7 +116,7 @@ moonLight.shadow.camera.left = -GROUND_HALF;
 moonLight.shadow.camera.right = GROUND_HALF;
 moonLight.shadow.camera.top = GROUND_HALF;
 moonLight.shadow.camera.bottom = -GROUND_HALF;
-scene.add(moonLight, { helper: { visible: false } });
+scene.add(moonLight);
 
 // === FOGUEIRA ===
 const fireGroup = new THREE.Group();
@@ -306,8 +310,8 @@ function generateNaturalPositions(count, minRadius, maxRadius, exclusionRadius) 
             if (validPosition) {
                 let tooClose = false;
                 for (const pos of positions) {
-                    const dx = x - pos[1];
-                    const dz = z - pos[0.5];
+                    const dx = x - pos[0];
+                    const dz = z - pos[1];
                     if (Math.sqrt(dx*dx + dz*dz) < 1.5) {
                         tooClose = true;
                         break;
@@ -324,7 +328,7 @@ function generateNaturalPositions(count, minRadius, maxRadius, exclusionRadius) 
         } else {
             // Se não encontrou posição ideal, usar uma posição segura próxima ao limite
             const angle = Math.random() * Math.PI * 1;
-            const distance = safeMaxRadius - 1.5; // 2 unidades de margem
+            const distance = safeMaxRadius - 1.5;
             x = Math.cos(angle) * distance;
             z = Math.sin(angle) * distance;
             positions.push([x, z]);
@@ -346,12 +350,52 @@ treePositions.forEach(([x, z]) => {
     scene.add(tree);
 });
 
-// Verificar se alguma árvore está fora dos limites (para debug)
-treePositions.forEach(([x, z], index) => {
-    if (Math.abs(x) > GROUND_HALF - 1 || Math.abs(z) > GROUND_HALF - 1) {
-        console.warn(`Árvore ${index + 1} perto da borda: (${x.toFixed(1)}, ${z.toFixed(1)})`);
-    }
-});
+// === PERSONAGEM SIMPLES ===
+function createCharacter() {
+    const character = new THREE.Group();
+    
+    // CABEÇA
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 12, 12),
+        new THREE.MeshPhongMaterial({ color: 0xFFDBAC })
+    );
+    head.position.y = 1.6;
+    character.add(head);
+
+    // CORPO
+    const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.2, 0.8, 8),
+        new THREE.MeshPhongMaterial({ color: 0x3498db })
+    );
+    body.position.y = 0.9;
+    character.add(body);
+
+    // PERNAS
+    const legGeometry = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 6);
+    const legMaterial = new THREE.MeshPhongMaterial({ color: 0x2c3e50 });
+    
+    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+    leftLeg.position.set(-0.06, 0.35, 0);
+    character.add(leftLeg);
+    
+    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+    rightLeg.position.set(0.06, 0.35, 0);
+    character.add(rightLeg);
+
+    // SOMBRAS
+    head.castShadow = true;
+    body.castShadow = true;
+    leftLeg.castShadow = true;
+    rightLeg.castShadow = true;
+
+    return character;
+}
+
+// CRIAR E POSICIONAR O PERSONAGEM
+const character = createCharacter();
+character.position.set(-3, 0, -3);
+character.rotation.y = Math.PI / 4;
+scene.add(character);
 
 // === CONFIGURAÇÃO DA CÂMERA ===
 camera.position.set(12, 8, 12);
@@ -362,11 +406,10 @@ x3.add(groundGroup, { label: 'Chão e Terreno' });
 x3.add(fireLight1, { label: 'Luz Fogueira 1' });
 x3.add(fireLight2, { label: 'Luz Fogueira 2' });
 x3.add(fireLight3, { label: 'Luz Fogueira 3' });
-x3.add(moonLight, { label: 'Luz do Luar' }, { helper: { visible: false } });
+x3.add(moonLight, { label: 'Luz do Luar', hidden: true });
+x3.add(character, { label: 'Personagem' });
 
 // === LOOP DE ANIMAÇÃO ===
-const clock = new THREE.Clock();
-
 renderer.setAnimationLoop(() => {
     const time = clock.getElapsedTime();
     
@@ -383,9 +426,11 @@ renderer.setAnimationLoop(() => {
     // Animação sutil da chama
     fire.scale.y = 1 + Math.sin(time * 6) * 0.2;
 
+    // Animação do personagem (respiração suave)
+    character.position.y = Math.sin(time * 2) * 0.03;
+
     x3.tick();
     x3.fps(() => {
         renderer.render(scene, camera);
     });
 });
-
